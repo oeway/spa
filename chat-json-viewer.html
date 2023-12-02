@@ -6,47 +6,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JSON Chat Viewer</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.3.0/github-markdown-light.css" />
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.3.0/github-markdown-light.css" />
   <style>
-    body, html {
+    body,
+    html {
       height: 100%;
       margin: 0;
     }
+
     .container-fluid {
       height: 100%;
       display: flex;
       flex-direction: column;
     }
+
+    .list-group-item-action.active {
+      background-color: #007bff;
+      color: white;
+    }
+
     #meta-info-box {
       padding: 10px;
       background-color: #f8f9fa;
       border-bottom: 1px solid #dee2e6;
       margin-bottom: 10px;
     }
+
     #chat-container {
       flex-grow: 1;
       overflow: hidden;
       display: flex;
       flex-direction: row;
     }
+
     #sidebar {
       max-height: 100%;
       overflow-y: auto;
       border-right: 1px solid #ccc;
     }
+
     #content {
       flex-grow: 1;
       overflow-y: auto;
       padding: 20px;
     }
+
     .chat-message {
       display: flex;
       align-items: flex-start;
       margin-bottom: 10px;
     }
+
     .chat-message.user-message {
       flex-direction: row-reverse;
     }
+
     .chat-message .message-content {
       background-color: #f2f2f2;
       padding: 14px;
@@ -55,55 +70,62 @@
       word-break: break-word;
       margin: 0 10px;
     }
+
     .chat-message.user-message .message-content {
       background-color: #dff9fb;
     }
-    .like-message > .message-content {
+
+    .like-message>.message-content {
       background-color: #9ff7b2;
     }
-    .unlike-message > .message-content {
+
+    .unlike-message>.message-content {
       background-color: #f4e25d;
     }
+
     .emoji {
       font-size: 24px;
       margin-top: 10px;
     }
+
     .file-input-container {
       margin: 100px;
       transition: min-height 0.3s ease-in-out;
     }
+
     #app-title {
       margin-bottom: 20px;
     }
+
     /* More custom styles can be added as needed */
   </style>
 </head>
 
 <body>
-    <div class="file-input-container">
-      <h1 id="app-title" class="text-center">JSON Chat Viewer</h1>
-      <input type="file" id="zipFileInput" accept=".zip" class="form-control">
+  <div class="file-input-container">
+    <h1 id="app-title" class="text-center">JSON Chat Viewer</h1>
+    <input type="file" id="zipFileInput" accept=".zip" class="form-control">
+  </div>
+  <div class="container-fluid" style="display:none;">
+    <div id="meta-info-box">
+      <!-- Meta information will be displayed here -->
     </div>
-    <div class="container-fluid" style="display:none;">
-      <div id="meta-info-box">
-        <!-- Meta information will be displayed here -->
+    <div id="chat-container">
+      <div id="sidebar" class="list-group col-md-4">
+        <!-- File list will be appended here -->
       </div>
-      <div id="chat-container">
-        <div id="sidebar" class="list-group col-md-4">
-          <!-- File list will be appended here -->
-        </div>
-        <div id="content" class="markdown-body col-md-8">
-          <!-- JSON content will be displayed here -->
-        </div>
+      <div id="content" class="markdown-body col-md-8">
+        <!-- JSON content will be displayed here -->
       </div>
     </div>
+  </div>
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.2.2/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/2.1.3/marked.min.js"></script>
   <script>
-    $(document).ready(function() {
-      $('#zipFileInput').on('change', function(event) {
+    $(document).ready(function () {
+      $('#zipFileInput').on('change', function (event) {
         var files = event.target.files;
         if (files.length === 0) {
           $('.file-input-container').show();
@@ -114,15 +136,34 @@
         $('.container-fluid').show();
 
         var file = files[0];
-        JSZip.loadAsync(file).then(function(zip) {
-          $('#sidebar').empty();
+        JSZip.loadAsync(file).then(function (zip) {
+          var filesData = [];
           zip.forEach(function (relativePath, zipEntry) {
+            // Extract the number from the file name
+            var matches = zipEntry.name.match(/(\d+)/);
+            if (matches && matches.length > 0) {
+              var number = parseInt(matches[0], 10);
+              filesData.push({ name: zipEntry.name, number: number, zipEntry: zipEntry });
+            }
+          });
+
+          // Sort the array by the extracted number
+          filesData.sort(function (a, b) {
+            return a.number - b.number;
+          });
+
+          // Clear the sidebar and append sorted list items
+          $('#sidebar').empty();
+          filesData.forEach(function (fileData) {
             var listItem = $('<a>')
               .addClass('list-group-item list-group-item-action')
-              .text(zipEntry.name)
+              .text(fileData.name)
               .attr('href', '#')
-              .click(function() {
-                zipEntry.async('string').then(function(content) {
+              .click(function () {
+                $('.list-group-item-action.active').removeClass('active');
+                $(this).addClass('active');
+
+                fileData.zipEntry.async('string').then(function (content) {
                   try {
                     var json = JSON.parse(content);
                     displayMetaInfo(json);
@@ -140,19 +181,18 @@
           });
         });
       });
-
       function displayMetaInfo(json) {
         var metaInfoBox = $('#meta-info-box');
         metaInfoBox.empty();
 
         var type = json.type || 'log';
-        
+
         if (['like', 'unlike'].includes(type)) {
           var emoji = type === 'like' ? '❤️' : '💔';
           metaInfoBox.append($('<h3>').text('Type: ' + type + emoji));
         }
-        else{
-          metaInfoBox.append($('<h3>').text('Type: ' + type)); 
+        else {
+          metaInfoBox.append($('<h3>').text('Type: ' + type));
         }
         if (json.session_id) {
           metaInfoBox.append($('<div>').text('Session ID: ' + json.session_id));
@@ -166,14 +206,14 @@
         if (json.user && json.user.email) {
           metaInfoBox.append($('<div>').text('Email: ' + json.user.email));
         }
-        if (json.feedback){
+        if (json.feedback) {
           metaInfoBox.append($('<div>').html('<strong>Feedback:' + json.feedback + "</strong>"));
         }
       }
 
       function renderChat(conversations) {
         var chatContainer = $('<div>');
-        conversations.forEach(function(conv) {
+        conversations.forEach(function (conv) {
           var chatBubble = $('<div>')
             .addClass('chat-message')
             .addClass(conv.role === 'user' ? 'user-message' : 'robot-message')
@@ -189,12 +229,12 @@
       function highlightLastMessage(chatContent, type) {
         var lastMessage = chatContent.children('.chat-message').last();
         var lastAssistantMessage = chatContent.children('.robot-message').last();
-        
+
         if (lastMessage.hasClass('user-message') && lastAssistantMessage.length > 0) {
           lastMessage = lastAssistantMessage;
         }
 
-        if(type === 'like') {
+        if (type === 'like') {
           lastMessage.addClass('like-message');
         } else {
           lastMessage.addClass('unlike-message');
