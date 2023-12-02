@@ -62,7 +62,7 @@
       background-color: #9ff7b2;
     }
     .unlike-message > .message-content {
-      background-color: #f3b484;
+      background-color: #f4e25d;
     }
     .emoji {
       font-size: 24px;
@@ -188,13 +188,22 @@
 
       function highlightLastMessage(chatContent, type) {
         var lastMessage = chatContent.children('.chat-message').last();
-        if(type === 'like')
+        var lastAssistantMessage = chatContent.children('.robot-message').last();
+        
+        if (lastMessage.hasClass('user-message') && lastAssistantMessage.length > 0) {
+          lastMessage = lastAssistantMessage;
+        }
+
+        if(type === 'like') {
           lastMessage.addClass('like-message');
-        else
+        } else {
           lastMessage.addClass('unlike-message');
+        }
+
         var emoji = type === 'like' ? '❤️' : '💔';
         lastMessage.append($('<div>').addClass('emoji').text(emoji));
       }
+
     });
   </script>
 </body>
