@@ -58,8 +58,18 @@
     .chat-message.user-message .message-content {
       background-color: #dff9fb;
     }
+    .like-message > .message-content {
+      background-color: #9ff7b2;
+    }
+    .unlike-message > .message-content {
+      background-color: #f3b484;
+    }
+    .emoji {
+      font-size: 24px;
+      margin-top: 10px;
+    }
     .file-input-container {
-      margin-bottom: 10px;
+      margin: 100px;
       transition: min-height 0.3s ease-in-out;
     }
     #app-title {
@@ -70,51 +80,38 @@
 </head>
 
 <body>
-    <div class="container-fluid">
-    <div id="meta-info-box">
-      <!-- Meta information will be displayed here -->
-    </div>
-    <div id="chat-container">
-      <div id="sidebar" class="list-group col-md-4">
-        <!-- File list will be appended here -->
-      </div>
-      <div id="content" class="markdown-body col-md-8">
-        <!-- JSON content will be displayed here -->
-      </div>
-    </div>
     <div class="file-input-container">
-      <h1 id="app-title" class="text-center" style="display: none;">JSON Chat Viewer</h1>
+      <h1 id="app-title" class="text-center">JSON Chat Viewer</h1>
       <input type="file" id="zipFileInput" accept=".zip" class="form-control">
     </div>
-  </div>
+    <div class="container-fluid" style="display:none;">
+      <div id="meta-info-box">
+        <!-- Meta information will be displayed here -->
+      </div>
+      <div id="chat-container">
+        <div id="sidebar" class="list-group col-md-4">
+          <!-- File list will be appended here -->
+        </div>
+        <div id="content" class="markdown-body col-md-8">
+          <!-- JSON content will be displayed here -->
+        </div>
+      </div>
+    </div>
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.2.2/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/2.1.3/marked.min.js"></script>
   <script>
     $(document).ready(function() {
-      // Change event for input file to handle the visibility of title and centering
-      $('#zipFileInput').on('change', handleFileInputDisplay);
-
-      // Initially call the function to ensure correct display on load
-      handleFileInputDisplay();
-
-      function handleFileInputDisplay() {
-        var fileInputContainer = $('.file-input-container');
-        var title = $('#app-title');
-        if ($('#zipFileInput').get(0).files.length === 0) {
-          title.show();
-          fileInputContainer.addClass('d-flex justify-content-center align-items-center').css('min-height', '100vh');
-        } else {
-          title.hide();
-          fileInputContainer.removeClass('d-flex justify-content-center align-items-center').css('min-height', '0');
-        }
-      }
       $('#zipFileInput').on('change', function(event) {
         var files = event.target.files;
         if (files.length === 0) {
+          $('.file-input-container').show();
+          $('.container-fluid').hide();
           return;
         }
+        $('.file-input-container').hide();
+        $('.container-fluid').show();
 
         var file = files[0];
         JSZip.loadAsync(file).then(function(zip) {
@@ -129,7 +126,11 @@
                   try {
                     var json = JSON.parse(content);
                     displayMetaInfo(json);
-                    $('#content').empty().append(renderChat(json.conversations));
+                    var chatContent = renderChat(json.conversations);
+                    if (['like', 'unlike'].includes(json.type)) {
+                      highlightLastMessage(chatContent, json.type);
+                    }
+                    $('#content').empty().append(chatContent);
                   } catch (e) {
                     $('#content').empty().append($('<div>').addClass('alert alert-danger').text('Invalid JSON file'));
                   }
@@ -144,9 +145,14 @@
         var metaInfoBox = $('#meta-info-box');
         metaInfoBox.empty();
 
-        // Assuming the meta information is at the top level of your JSON object
-        if (json.type) {
-          metaInfoBox.append($('<div>').text('Type: ' + json.type));
+        var type = json.type || 'log';
+        
+        if (['like', 'unlike'].includes(type)) {
+          var emoji = type === 'like' ? '❤️' : '💔';
+          metaInfoBox.append($('<h3>').text('Type: ' + type + emoji));
+        }
+        else{
+          metaInfoBox.append($('<h3>').text('Type: ' + type)); 
         }
         if (json.session_id) {
           metaInfoBox.append($('<div>').text('Session ID: ' + json.session_id));
@@ -160,7 +166,9 @@
         if (json.user && json.user.email) {
           metaInfoBox.append($('<div>').text('Email: ' + json.user.email));
         }
-        // Add more meta information fields as needed
+        if (json.feedback){
+          metaInfoBox.append($('<div>').html('<strong>Feedback:' + json.feedback + "</strong>"));
+        }
       }
 
       function renderChat(conversations) {
@@ -176,6 +184,16 @@
           chatContainer.append(chatBubble);
         });
         return chatContainer;
+      }
+
+      function highlightLastMessage(chatContent, type) {
+        var lastMessage = chatContent.children('.chat-message').last();
+        if(type === 'like')
+          lastMessage.addClass('like-message');
+        else
+          lastMessage.addClass('unlike-message');
+        var emoji = type === 'like' ? '❤️' : '💔';
+        lastMessage.append($('<div>').addClass('emoji').text(emoji));
       }
     });
   </script>
